@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Game Tikus Makan Keju</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="game-area">
+        <div id="score">Score: 0</div>
+        <button id="play-again">
+            <div id="scoreakhir" style="color: rgb(51, 212, 51);"></div>
+            Play Again
+        </button>
+        <button id="start">Start</button>
+        <img src="tikus.png" id="tikus" alt="Tikus">
+        <audio id="bg-music" src="musicgame.mp3" loop></audio>
+        <audio id="makan-sound" src="makan.wav"></audio>
+        <audio id="bom-sound" src="bom.wav"></audio>
+        <div id="levelBoard">Level: 1</div>
+        <div id="timer">Waktu: 60</div>
+
+    </div>
+
+    <script>
+        const gameArea = document.getElementById("game-area");
+        const tikus = document.getElementById("tikus");
+        const scoreBoard = document.getElementById("score");
+        const playAgainBtn = document.getElementById("play-again");
+        const startBtn = document.getElementById("start");
+        const scoreakhirVal = document.getElementById("scoreakhir");
+        const bgMusic = document.getElementById("bg-music");
+        const makanSound = document.getElementById("makan-sound");
+        const bomSound = document.getElementById("bom-sound");
+        let level = 1;
+        let kejuFallSpeed = 3; // kecepatan jatuh awal
+        let levelUpInterval = 5; // naik level tiap 5 skor
+
+        let score = 0;
+        let tikusPosX = 200;
+        let gameOver = false;
+        let intervals = [];
+        let timeLeft = 60;
+        let timerInterval = null;
+
+        function startTimer() {
+            document.getElementById("timer").textContent = "Waktu: " + timeLeft;
+
+            timerInterval = setInterval(() => {
+                if (gameOver) {
+                    clearInterval(timerInterval);
+                    return;
+                }
+
+                timeLeft--;
+                document.getElementById("timer").textContent = "Waktu: " + timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        // Tikus dikendalikan dengan panah kiri-kanan
+        document.addEventListener("keydown", (e) => {
+            if (gameOver) return;
+            const speed = 10;
+            if (e.key === "ArrowRight") {
+                tikusPosX += speed;
+                if (tikusPosX + tikus.offsetWidth > window.innerWidth) {
+                    tikusPosX = window.innerWidth - tikus.offsetWidth;
+                }
+                tikus.style.transform = "scaleX(1)"; // Menghadap kanan
+            } else if (e.key === "ArrowLeft") {
+                tikusPosX -= speed;
+                if (tikusPosX < 0) tikusPosX = 0;
+                tikus.style.transform = "scaleX(-1)"; // Menghadap kiri
+            }
+            tikus.style.left = tikusPosX + "px";
+        });
+
+        function spawnKeju() {
+            const keju = document.createElement("img");
+            keju.src = "keju.png";
+            keju.classList.add("keju");
+            keju.style.left = Math.random() * (window.innerWidth - 50) + "px";
+            keju.style.top = "0px";
+            gameArea.appendChild(keju);
+
+            let posisiY = 0;
+            const interval = setInterval(() => {
+                if (gameOver) {
+                    keju.remove();
+                    clearInterval(interval);
+                    return;
+                }
+
+                //kecepatan
+                posisiY += kejuFallSpeed;
+                keju.style.top = posisiY + "px";
+
+                // kejuY += kejuFallSpeed;
+                // keju.style.top = kejuY + "px";
+
+                if (checkCollision(keju, tikus)) {
+                    makanSound.currentTime = 0;
+                    makanSound.play();
+                    score++;
+                    scoreBoard.textContent = "Score: " + score;
+                    keju.remove();
+                    clearInterval(interval);
+
+                    // Cek naik level
+                    if (score % levelUpInterval === 0) {
+                        level++;
+                        kejuFallSpeed += 2; // Tambah kecepatan jatuh
+                        document.getElementById("levelBoard").textContent = "Level: " + level;
+                    }
+                }
+
+                if (posisiY > window.innerHeight) {
+                    keju.remove();
+                    clearInterval(interval);
+                }
+            }, 16);
+            intervals.push(interval);
+        }
+
+        function spawnBom() {
+            const bom = document.createElement("img");
+            bom.src = "bom.png"; // Pastikan gambar bom ada
+            bom.classList.add("bom");
+            bom.style.left = Math.random() * (window.innerWidth - 50) + "px";
+            bom.style.top = "0px";
+            gameArea.appendChild(bom);
+
+            let posisiY = 0;
+            const interval = setInterval(() => {
+                if (gameOver) {
+                    bom.remove();
+                    clearInterval(interval);
+                    return;
+                }
+
+                // posisiY += 4;
+                // bom.style.top = posisiY + "px";
+
+                posisiY += kejuFallSpeed;
+                bom.style.top = posisiY + "px";
+
+                if (checkCollision(bom, tikus)) {
+                    endGame();
+                    bom.remove();
+                    clearInterval(interval);
+                }
+
+                if (posisiY > window.innerHeight) {
+                    bom.remove();
+                    clearInterval(interval);
+                }
+            }, 16);
+            intervals.push(interval);
+        }
+
+        function checkCollision(obj1, obj2) {
+            const rect1 = obj1.getBoundingClientRect();
+            const rect2 = obj2.getBoundingClientRect();
+            return (
+                rect1.bottom >= rect2.top &&
+                rect1.left < rect2.right &&
+                rect1.right > rect2.left
+            );
+        }
+
+        function endGame() {
+            bomSound.currentTime = 0;
+            bomSound.play();
+
+            gameOver = true;
+            intervals.forEach(clearInterval);
+
+            // Ganti gambar tikus jadi meledak
+            tikus.src = "meledak.png"; // atau tikus_meledak.png
+            tikus.style.width = "120px"; // opsional, sesuaikan ukuran
+            tikus.style.zIndex = 10;
+            bgMusic.pause();
+            clearInterval(timerInterval);
+
+            // Setelah 1 detik, munculkan Game Over & tombol main lagi
+                playAgainBtn.style.display = "block";
+                scoreakhirVal.append("Game Over! Skor kamu: " + score);
+        }
+
+
+        function startGame() {
+            timeLeft = 60;
+            document.getElementById("scoreakhir").innerHTML = "";
+            
+            
+            level = 1;
+            score = 0;
+            kejuFallSpeed = 3;
+            document.getElementById("levelBoard").textContent = "Level: " + level;
+            gameOver = false;
+            tikusPosX = 200;
+            tikus.src = "tikus.png"; // atau tikus_meledak.png
+            tikus.style.left = tikusPosX + "px";
+            scoreBoard.textContent = "Score: 0";
+            playAgainBtn.style.display = "none";
+            startBtn.style.display = "none";
+
+            document.getElementById("timer").textContent = "Waktu: 60";
+            // Hapus semua keju dan bom
+            document.querySelectorAll(".keju, .bom").forEach(e => e.remove());
+            intervals = [];
+
+            // Mulai spawn ulang
+            intervals.push(setInterval(spawnKeju, 2000));
+            intervals.push(setInterval(spawnBom, 10000));
+            bgMusic.currentTime = 0;
+            bgMusic.play();
+            startTimer();
+
+        }
+
+        playAgainBtn.addEventListener("click", startGame);
+
+        // Mulai game saat pertama kali dibuka
+        startBtn.addEventListener("click", startGame);
+
+        // startGame();
+    </script>
+</body>
+
+</html>
